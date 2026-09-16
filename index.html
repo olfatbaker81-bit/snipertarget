@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>قناص الأهداف | لعبة تصويب جاهزة</title>
+  <style>
+    :root{
+      --cyan:#44e7ff;
+      --pink:#ff3df2;
+      --gold:#ffd166;
+      --green:#55ff99;
+      --red:#ff4e6a;
+      --bg1:#060915;
+      --bg2:#101a3c;
+      --panel:rgba(7,14,35,.72);
+      --glass:rgba(255,255,255,.08);
+      --text:#eaf8ff;
+    }
+    *{box-sizing:border-box; user-select:none; -webkit-tap-highlight-color:transparent}
+    html,body{margin:0; height:100%; overflow:hidden; background:#03050c; font-family:"Tahoma","Segoe UI",Arial,sans-serif; color:var(--text)}
+    body:before{
+      content:""; position:fixed; inset:-40%; pointer-events:none;
+      background:
+        radial-gradient(circle at 18% 22%, rgba(68,231,255,.18), transparent 26%),
+        radial-gradient(circle at 76% 18%, rgba(255,61,242,.16), transparent 24%),
+        radial-gradient(circle at 58% 84%, rgba(255,209,102,.10), transparent 22%);
+      filter: blur(6px); animation: aurora 13s ease-in-out infinite alternate;
+    }
+    @keyframes aurora{from{transform:translate3d(-2%,0,0) rotate(0deg)}to{transform:translate3d(2%,1%,0) rotate(7deg)}}
+    #game{position:fixed; inset:0; width:100vw; height:100vh; display:block; cursor:none; background:linear-gradient(180deg,var(--bg2),var(--bg1) 62%,#02040a)}
+    .hud{position:fixed; inset:0; pointer-events:none; padding:18px; display:grid; grid-template-rows:auto 1fr auto; gap:12px; z-index:5}
+    .topbar{display:flex; gap:12px; align-items:stretch; justify-content:space-between; flex-wrap:wrap}
+    .card{background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.04)); border:1px solid rgba(120,240,255,.24); box-shadow:0 10px 40px rgba(0,0,0,.28), inset 0 0 22px rgba(68,231,255,.05); backdrop-filter: blur(13px); border-radius:18px; padding:10px 14px; min-width:104px}
+    .label{font-size:12px; color:rgba(234,248,255,.68); letter-spacing:.4px; margin-bottom:4px}
+    .value{font-size:24px; font-weight:900; line-height:1; text-shadow:0 0 14px rgba(68,231,255,.45)}
+    .value.gold{color:var(--gold)} .value.green{color:var(--green)} .value.red{color:var(--red)}
+    .ammo{display:flex; gap:5px; direction:ltr; align-items:center; margin-top:3px}
+    .bullet{width:9px; height:24px; border-radius:7px 7px 2px 2px; background:linear-gradient(#ffe8a3,#ffae2e); box-shadow:0 0 8px rgba(255,209,102,.55)}
+    .bullet.empty{background:rgba(255,255,255,.15); box-shadow:none; border:1px solid rgba(255,255,255,.12)}
+    .meters{position:fixed; left:18px; bottom:18px; width:min(300px,38vw); display:flex; flex-direction:column; gap:8px; z-index:7; pointer-events:none}
+    .meter{height:13px; border-radius:999px; border:1px solid rgba(255,255,255,.18); overflow:hidden; background:rgba(255,255,255,.08); box-shadow:inset 0 0 16px rgba(0,0,0,.35)}
+    .meter > span{display:block; height:100%; width:100%; border-radius:999px; transition:width .12s linear; background:linear-gradient(90deg,var(--cyan),var(--pink)); box-shadow:0 0 16px rgba(68,231,255,.65)}
+    .meter.focus > span{background:linear-gradient(90deg,#68ffbe,var(--cyan))}
+    .hint{font-size:12px; color:rgba(234,248,255,.72); text-align:left; line-height:1.5}
+    .centerMessage{align-self:center; justify-self:center; text-align:center; pointer-events:auto; width:min(760px,calc(100vw - 32px)); padding:28px; border-radius:30px; border:1px solid rgba(120,240,255,.28); background:linear-gradient(135deg,rgba(7,14,35,.88),rgba(28,8,45,.75)); box-shadow:0 25px 80px rgba(0,0,0,.55), 0 0 80px rgba(68,231,255,.13); backdrop-filter:blur(18px); transform:translateY(0); animation: pop .55s cubic-bezier(.2,.9,.2,1)}
+    @keyframes pop{from{opacity:0; transform:translateY(18px) scale(.98)}to{opacity:1; transform:translateY(0) scale(1)}}
+    .centerMessage.hidden{display:none}
+    .title{font-size:clamp(38px,7vw,74px); margin:0 0 10px; font-weight:1000; letter-spacing:-1.5px; line-height:1.05; background:linear-gradient(90deg,#fff,var(--cyan),var(--pink),var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent; text-shadow:0 0 40px rgba(68,231,255,.18)}
+    .subtitle{font-size:clamp(15px,2vw,20px); color:rgba(234,248,255,.78); margin:0 auto 22px; line-height:1.8; max-width:650px}
+    .buttonRow{display:flex; gap:12px; flex-wrap:wrap; justify-content:center; align-items:center}
+    button{pointer-events:auto; border:0; outline:0; cursor:pointer; color:#04111b; font-weight:900; font-size:17px; padding:14px 24px; border-radius:999px; background:linear-gradient(135deg,var(--cyan),#8dffea); box-shadow:0 10px 30px rgba(68,231,255,.27), inset 0 -3px 0 rgba(0,0,0,.18); transition:.18s transform,.18s filter}
+    button:hover{transform:translateY(-2px); filter:saturate(1.18)}
+    button.secondary{color:#fff; background:linear-gradient(135deg,rgba(255,61,242,.92),rgba(119,85,255,.92))}
+    .statsGrid{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:20px 0 8px}
+    .stat{background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:17px; padding:12px}
+    .stat b{display:block; color:var(--gold); font-size:24px; margin-top:3px}
+    .toast{position:fixed; top:108px; left:50%; transform:translateX(-50%); min-width:180px; text-align:center; padding:10px 18px; border-radius:999px; background:rgba(5,10,25,.72); border:1px solid rgba(68,231,255,.28); color:#fff; font-weight:900; z-index:9; pointer-events:none; opacity:0; transition:.25s; box-shadow:0 0 30px rgba(68,231,255,.18)}
+    .toast.show{opacity:1; transform:translateX(-50%) translateY(4px)}
+    .mobileControls{position:fixed; right:18px; bottom:18px; z-index:8; display:none; gap:10px; pointer-events:auto}
+    .mobileControls button{width:74px; height:74px; padding:0; display:grid; place-items:center; font-size:24px; color:#fff; background:linear-gradient(135deg,rgba(255,255,255,.16),rgba(255,255,255,.06)); border:1px solid rgba(120,240,255,.25)}
+    .scanlines{position:fixed; inset:0; pointer-events:none; z-index:6; opacity:.11; background:repeating-linear-gradient(0deg,transparent 0 7px,rgba(255,255,255,.18) 8px)}
+    .vignette{position:fixed; inset:0; pointer-events:none; z-index:4; background:radial-gradient(circle at center, transparent 46%, rgba(0,0,0,.42) 100%)}
+    @media (max-width:720px){
+      .hud{padding:10px}.card{min-width:82px; padding:8px 10px; border-radius:14px}.label{font-size:10px}.value{font-size:19px}.topbar{gap:7px}.title{font-size:42px}.centerMessage{padding:20px}.statsGrid{grid-template-columns:repeat(2,1fr)}.meters{left:10px; bottom:10px; width:44vw}.hint{font-size:10px}.mobileControls{display:flex}.bullet{width:7px;height:18px}.toast{top:92px}
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div class="vignette"></div>
+  <div class="scanlines"></div>
+
+  <main class="hud" aria-label="واجهة اللعبة">
+    <section class="topbar">
+      <div class="card"><div class="label">النقاط</div><div id="score" class="value gold">0</div></div>
+      <div class="card"><div class="label">الوقت</div><div id="time" class="value">60</div></div>
+      <div class="card"><div class="label">المستوى</div><div id="level" class="value green">1</div></div>
+      <div class="card"><div class="label">السلسلة</div><div id="combo" class="value">x1</div></div>
+      <div class="card"><div class="label">الدقة</div><div id="accuracy" class="value">100%</div></div>
+      <div class="card"><div class="label">الذخيرة</div><div id="ammo" class="ammo" aria-label="الذخيرة"></div></div>
+    </section>
+
+    <section id="menu" class="centerMessage">
+      <h1 class="title">قناص الأهداف</h1>
+      <p class="subtitle">
+        لعبة تصويب سريعة بتصميم نيون سينمائي. أصِب مركز الأهداف المتحركة، اجمع السلاسل، استخدم التركيز لإبطاء الزمن، ولا تنسَ إعادة التلقيم!
+      </p>
+      <div class="buttonRow">
+        <button id="startBtn">ابدأ اللعب الآن</button>
+        <button id="howBtn" class="secondary">طريقة اللعب</button>
+      </div>
+    </section>
+
+    <section id="how" class="centerMessage hidden">
+      <h2 class="title" style="font-size:42px">طريقة اللعب</h2>
+      <p class="subtitle">
+        حرّك المؤشر للتصويب، وانقر لإطلاق النار. اضغط R لإعادة التلقيم. اضغط Shift أو Z أو زر التركيز لإبطاء حركة الأهداف مؤقتاً. إصابة المركز تمنح نقاطاً أعلى وسلسلة مضاعفة.
+      </p>
+      <div class="buttonRow"><button id="backBtn">رجوع</button><button id="startBtn2" class="secondary">ابدأ</button></div>
+    </section>
+
+    <section id="gameOver" class="centerMessage hidden">
+      <h2 class="title" style="font-size:46px">انتهت الجولة</h2>
+      <p class="subtitle" id="rankText">نتيجة رائعة!</p>
+      <div class="statsGrid">
+        <div class="stat">النقاط<b id="finalScore">0</b></div>
+        <div class="stat">أفضل نتيجة<b id="bestScore">0</b></div>
+        <div class="stat">الإصابات<b id="finalHits">0</b></div>
+        <div class="stat">الدقة<b id="finalAccuracy">0%</b></div>
+      </div>
+      <div class="buttonRow"><button id="restartBtn">إعادة اللعب</button><button id="menuBtn" class="secondary">القائمة</button></div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast">إصابة ممتازة!</div>
+
+  <div class="meters">
+    <div class="meter focus" title="طاقة التركيز"><span id="focusBar"></span></div>
+    <div class="hint">التحكم: انقر للتصويب · R تلقيم · Shift/Z تركيز · Esc إيقاف مؤقت</div>
+  </div>
+
+  <div class="mobileControls">
+    <button id="focusBtn" title="تركيز">◎</button>
+    <button id="reloadBtn" title="تلقيم">↻</button>
+  </div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const ui = {
+    score: document.getElementById('score'), time: document.getElementById('time'), level: document.getElementById('level'), combo: document.getElementById('combo'), accuracy: document.getElementById('accuracy'), ammo: document.getElementById('ammo'), focusBar: document.getElementById('focusBar'), toast: document.getElementById('toast'),
+    menu: document.getElementById('menu'), how: document.getElementById('how'), gameOver: document.getElementById('gameOver'),
+    finalScore: document.getElementById('finalScore'), bestScore: document.getElementById('bestScore'), finalHits: document.getElementById('finalHits'), finalAccuracy: document.getElementById('finalAccuracy'), rankText: document.getElementById('rankText')
+  };
+
+  const TAU = Math.PI * 2;
+  const state = {
+    mode:'menu', w:0, h:0, dpr:1, timeLeft:60, score:0, level:1, combo:1, maxCombo:1, hits:0, shots:0, misses:0, ammo:6, mag:6, reloading:false, reloadT:0, focus:100, focusHeld:false, slow:1, shake:0, flash:0, last:0, spawnT:0, waveT:0, particles:[], targets:[], floaters:[], rings:[], stars:[], pointer:{x:innerWidth/2,y:innerHeight/2,down:false}, paused:false, sound:true
+  };
+  let audioCtx = null;
+
+  function resize(){
+    state.dpr = Math.min(devicePixelRatio || 1, 2);
+    state.w = innerWidth; state.h = innerHeight;
+    canvas.width = Math.floor(state.w * state.dpr);
+    canvas.height = Math.floor(state.h * state.dpr);
+    ctx.setTransform(state.dpr,0,0,state.dpr,0,0);
+  }
+  addEventListener('resize', resize, {passive:true}); resize();
+
+  function rand(a,b){ return a + Math.random()*(b-a); }
+  function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
+  function dist(a,b,c,d){ return Math.hypot(a-c,b-d); }
+
+  function beep(type='hit', pan=0){
+    try{
+      audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const panner = audioCtx.createStereoPanner ? audioCtx.createStereoPanner() : null;
+      let f1=560, f2=260, dur=.10, wave='sine', vol=.08;
+      if(type==='shoot'){f1=130; f2=58; dur=.08; wave='square'; vol=.045}
+      if(type==='bull'){f1=980; f2=1520; dur=.18; wave='triangle'; vol=.09}
+      if(type==='miss'){f1=150; f2=90; dur=.16; wave='sawtooth'; vol=.035}
+      if(type==='reload'){f1=260; f2=420; dur=.13; wave='triangle'; vol=.055}
+      if(type==='end'){f1=220; f2=660; dur=.55; wave='sine'; vol=.06}
+      osc.type = wave;
+      osc.frequency.setValueAtTime(f1, now);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(1,f2), now+dur);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(vol, now+.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now+dur);
+      if(panner){panner.pan.value = clamp(pan,-1,1); osc.connect(gain).connect(panner).connect(audioCtx.destination)}
+      else osc.connect(gain).connect(audioCtx.destination);
+      osc.start(now); osc.stop(now+dur+.02);
+    }catch(e){}
+  }
+
+  function showToast(text, color='white'){
+    ui.toast.textContent = text; ui.toast.style.color = color; ui.toast.classList.add('show');
+    clearTimeout(showToast.t); showToast.t = setTimeout(()=>ui.toast.classList.remove('show'), 620);
+  }
+
+  function setScreen(which){
+    ui.menu.classList.toggle('hidden', which !== 'menu');
+    ui.how.classList.toggle('hidden', which !== 'how');
+    ui.gameOver.classList.toggle('hidden', which !== 'over');
+  }
+
+  function reset(){
+    Object.assign(state, {mode:'playing', timeLeft:60, score:0, level:1, combo:1, maxCombo:1, hits:0, shots:0, misses:0, ammo:6, reloading:false, reloadT:0, focus:100, focusHeld:false, slow:1, shake:0, flash:0, spawnT:.25, waveT:0, targets:[], particles:[], floaters:[], rings:[], stars:[], paused:false});
+    // نبدأ الجولة بأهداف ظاهرة داخل الشاشة حتى لا ينتظر اللاعب دخولها من الأطراف.
+    for(let i=0;i<4;i++) state.targets.push(makeTarget(true, i));
+    setScreen('none');
+    updateUI();
+    showToast('الأهداف ظهرت — ابدأ القنص!', 'var(--cyan)');
+  }
+
+  function endGame(){
+    state.mode='over'; setScreen('over'); beep('end');
+    const acc = accuracy();
+    const best = Math.max(Number(localStorage.getItem('sniperBestAR')||0), state.score);
+    localStorage.setItem('sniperBestAR', best);
+    ui.finalScore.textContent = state.score;
+    ui.bestScore.textContent = best;
+    ui.finalHits.textContent = state.hits;
+    ui.finalAccuracy.textContent = acc + '%';
+    let rank = 'محاولة جيدة!';
+    if(state.score > 18000) rank = 'أسطورة القنص! تصميمك على الدقة مذهل.';
+    else if(state.score > 11000) rank = 'قناص محترف! سلسلة إصابات رائعة.';
+    else if(state.score > 6000) rank = 'أداء قوي! اقترب أكثر من مركز الهدف.';
+    ui.rankText.textContent = rank;
+  }
+
+  function accuracy(){ return state.shots ? Math.round((state.hits/state.shots)*100) : 100; }
+
+  function updateUI(){
+    ui.score.textContent = state.score;
+    ui.time.textContent = Math.ceil(state.timeLeft);
+    ui.level.textContent = state.level;
+    ui.combo.textContent = 'x' + state.combo;
+    ui.accuracy.textContent = accuracy() + '%';
+    ui.focusBar.style.width = state.focus + '%';
+    ui.ammo.innerHTML = '';
+    for(let i=0;i<state.mag;i++){
+      const b = document.createElement('span'); b.className = 'bullet' + (i < state.ammo ? '' : ' empty'); ui.ammo.appendChild(b);
+    }
+  }
+
+  function makeTarget(visible=false, index=0){
+    const lvl = state.level;
+    const r = clamp(rand(34,56) - lvl*.9, 24, 56);
+    const safeTop = 118 + r;
+    const safeBottom = Math.max(safeTop + 40, state.h - 86 - r);
+    const safeLeft = 70 + r;
+    const safeRight = Math.max(safeLeft + 40, state.w - 70 - r);
+    let x,y,vx,vy;
+    const speed = rand(72,135) + lvl*13;
+
+    if(visible){
+      // أماكن موزعة بوضوح داخل الشاشة، مع حركة ناعمة حتى تظهر فور بدء اللعبة.
+      const cols = [0.23, 0.50, 0.77, 0.36, 0.64];
+      const rows = [0.33, 0.44, 0.35, 0.62, 0.58];
+      x = clamp(state.w * cols[index % cols.length] + rand(-28,28), safeLeft, safeRight);
+      y = clamp(state.h * rows[index % rows.length] + rand(-22,22), safeTop, safeBottom);
+      vx = rand(-75,75) || 45;
+      vy = rand(-55,55) || -35;
+    } else {
+      const side = Math.floor(rand(0,4));
+      if(side===0){x=-r; y=rand(safeTop,safeBottom); vx=speed; vy=rand(-42,42)}
+      else if(side===1){x=state.w+r; y=rand(safeTop,safeBottom); vx=-speed; vy=rand(-42,42)}
+      else if(side===2){x=rand(safeLeft,safeRight); y=-r; vx=rand(-52,52); vy=speed}
+      else{x=rand(safeLeft,safeRight); y=state.h+r; vx=rand(-52,52); vy=-speed}
+    }
+
+    const kindRoll = Math.random();
+    const kind = kindRoll > .93 ? 'gold' : kindRoll > .82 ? 'fast' : 'normal';
+    if(kind==='fast'){vx*=1.45; vy*=1.45}
+    return {x,y,vx,vy,r,life:rand(6.5,9.2)-lvl*.08, maxLife:9, rot:rand(0,TAU), spin:rand(-2.2,2.2), kind, pulse:rand(0,TAU), hit:false};
+  }
+
+  function createParticles(x,y,color,count=18,force=1){
+    for(let i=0;i<count;i++) state.particles.push({x,y,vx:Math.cos(rand(0,TAU))*rand(60,310)*force,vy:Math.sin(rand(0,TAU))*rand(60,310)*force,life:rand(.28,.75),max:1,color,size:rand(2,6)});
+  }
+  function addFloater(x,y,text,color='white'){
+    state.floaters.push({x,y,text,color,life:1.05,vy:-48});
+  }
+  function addRing(x,y,color='rgba(68,231,255,.9)'){
+    state.rings.push({x,y,r:8,life:.45,color});
+  }
+
+  function reload(){
+    if(state.reloading || state.ammo === state.mag || state.mode !== 'playing') return;
+    state.reloading = true; state.reloadT = 1.05; beep('reload'); showToast('إعادة تلقيم...', 'var(--gold)');
+  }
+
+  function shoot(){
+    if(state.mode !== 'playing' || state.paused) return;
+    if(state.reloading) return showToast('انتظر التلقيم', 'var(--gold)');
+    if(state.ammo <= 0){ reload(); return; }
+    state.shots++; state.ammo--; state.shake = 6; state.flash = .16; beep('shoot', (state.pointer.x/state.w)*2-1);
+    addRing(state.pointer.x, state.pointer.y, 'rgba(255,255,255,.75)');
+    let best = null, bestD = Infinity;
+    for(const t of state.targets){
+      const d = dist(state.pointer.x,state.pointer.y,t.x,t.y);
+      if(d < t.r && d < bestD){ best=t; bestD=d; }
+    }
+    if(best){
+      best.hit = true; state.hits++;
+      const center = clamp(1 - bestD / best.r, 0, 1);
+      const bull = center > .68;
+      if(bull) state.combo = clamp(state.combo+1,1,12); else state.combo = clamp(state.combo,1,12);
+      state.maxCombo = Math.max(state.maxCombo, state.combo);
+      const kindBonus = best.kind === 'gold' ? 2.5 : best.kind === 'fast' ? 1.45 : 1;
+      const gained = Math.round((120 + center*260 + (bull?180:0)) * state.combo * kindBonus);
+      state.score += gained;
+      const color = best.kind === 'gold' ? '#ffd166' : bull ? '#55ff99' : '#44e7ff';
+      createParticles(best.x,best.y,color,bull?34:22,bull?1.25:1);
+      addFloater(best.x, best.y - best.r, (bull?'مركز! ':'+') + gained, color);
+      beep(bull?'bull':'hit', (best.x/state.w)*2-1);
+      if(best.kind==='gold') {state.focus = clamp(state.focus+18,0,100); addFloater(best.x,best.y+best.r,'+ تركيز','#68ffbe');}
+      state.targets = state.targets.filter(t => t !== best);
+    } else {
+      state.misses++; state.combo = 1; addFloater(state.pointer.x,state.pointer.y,'خطأ','#ff4e6a'); createParticles(state.pointer.x,state.pointer.y,'rgba(255,78,106,.75)',8,.55); beep('miss');
+    }
+    if(state.ammo <= 0) setTimeout(()=>reload(), 160);
+    updateUI();
+  }
+
+  function drawBackground(dt){
+    const w=state.w,h=state.h;
+    const grad = ctx.createLinearGradient(0,0,0,h);
+    grad.addColorStop(0,'#101d45'); grad.addColorStop(.48,'#081025'); grad.addColorStop(1,'#02040a');
+    ctx.fillStyle=grad; ctx.fillRect(0,0,w,h);
+    // moon / hologram lights
+    ctx.save();
+    ctx.globalCompositeOperation='lighter';
+    for(let i=0;i<3;i++){
+      const x = w*(.2+i*.27) + Math.sin(performance.now()/1500+i)*18;
+      const y = h*(.16+i*.04);
+      const g = ctx.createRadialGradient(x,y,0,x,y,160+i*40);
+      g.addColorStop(0, i===1?'rgba(255,61,242,.12)':'rgba(68,231,255,.10)'); g.addColorStop(1,'transparent');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,180+i*45,0,TAU); ctx.fill();
+    }
+    ctx.restore();
+
+    // perspective grid floor
+    const horizon = h*.58;
+    ctx.strokeStyle='rgba(68,231,255,.15)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0,horizon); ctx.lineTo(w,horizon); ctx.stroke();
+    for(let i=0;i<28;i++){
+      const p=i/27; const x = w/2 + (p-.5)*w*1.85;
+      ctx.beginPath(); ctx.moveTo(w/2,horizon); ctx.lineTo(x,h); ctx.stroke();
+    }
+    for(let j=0;j<18;j++){
+      const t=j/17; const y = horizon + Math.pow(t,1.85)*(h-horizon);
+      ctx.globalAlpha = .25 + t*.35; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); ctx.globalAlpha=1;
+    }
+
+    // skyline silhouettes
+    ctx.fillStyle='rgba(0,0,0,.34)';
+    for(let i=0;i<12;i++){
+      const bw=w/12; const x=i*bw; const bh=rand(70,160); // static-looking enough not critical
+      const y=horizon-bh + Math.sin(i*4.21)*12;
+      ctx.fillRect(x+4,y,bw-8,bh);
+    }
+    // rails
+    ctx.strokeStyle='rgba(255,61,242,.22)'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(w*.13,h); ctx.lineTo(w*.43,horizon); ctx.moveTo(w*.87,h); ctx.lineTo(w*.57,horizon); ctx.stroke();
+  }
+
+  function drawTarget(t){
+    ctx.save(); ctx.translate(t.x,t.y); ctx.rotate(t.rot);
+    const neon = t.kind==='gold' ? '#ffd166' : t.kind==='fast' ? '#ff3df2' : '#44e7ff';
+    const accent = t.kind==='gold' ? '#fff1b8' : t.kind==='fast' ? '#ffd6fb' : '#eaf8ff';
+    ctx.shadowBlur=24; ctx.shadowColor=neon;
+    ctx.globalAlpha=.55;
+    ctx.strokeStyle=neon; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(0,0,t.r+5+Math.sin(t.pulse)*3,0,TAU); ctx.stroke();
+    ctx.globalAlpha=1;
+    const bands = [1,.72,.45,.2];
+    const fills = t.kind==='gold' ? ['#ffd166','#342716','#fff0aa','#ff8c42'] : t.kind==='fast' ? ['#ff3df2','#22082f','#ffb8fa','#44e7ff'] : ['#44e7ff','#071529','#eaf8ff','#ff4e6a'];
+    for(let i=0;i<bands.length;i++){
+      ctx.beginPath(); ctx.fillStyle=fills[i]; ctx.arc(0,0,t.r*bands[i],0,TAU); ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,.45)'; ctx.lineWidth=1; ctx.stroke();
+    }
+    ctx.shadowBlur=0;
+    ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(-t.r,0); ctx.lineTo(t.r,0); ctx.moveTo(0,-t.r); ctx.lineTo(0,t.r); ctx.stroke();
+    ctx.strokeStyle=accent; ctx.lineWidth=1.5; ctx.globalAlpha=.75;
+    ctx.beginPath(); ctx.arc(0,0,t.r*.82,0,TAU); ctx.stroke();
+    ctx.restore();
+
+    // health/time halo
+    const lifeRatio = clamp(t.life/t.maxLife,0,1);
+    ctx.save(); ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(t.x,t.y,t.r+11,-Math.PI/2,-Math.PI/2+TAU*lifeRatio); ctx.stroke(); ctx.restore();
+  }
+
+  function drawCrosshair(){
+    const x=state.pointer.x, y=state.pointer.y; const zoom = state.focusHeld && state.focus > 0;
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.globalCompositeOperation='lighter';
+    if(zoom){
+      ctx.strokeStyle='rgba(68,231,255,.35)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,0,96,0,TAU); ctx.stroke();
+      ctx.strokeStyle='rgba(255,255,255,.14)'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(0,0,72,0,TAU); ctx.stroke();
+    }
+    const r = zoom ? 30 : 22;
+    ctx.shadowBlur=16; ctx.shadowColor= zoom ? '#68ffbe' : '#44e7ff';
+    ctx.strokeStyle= zoom ? 'rgba(104,255,190,.92)' : 'rgba(68,231,255,.95)';
+    ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(0,0,r,0,TAU); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-r-18,0); ctx.lineTo(-8,0); ctx.moveTo(8,0); ctx.lineTo(r+18,0);
+    ctx.moveTo(0,-r-18); ctx.lineTo(0,-8); ctx.moveTo(0,8); ctx.lineTo(0,r+18); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(0,0,2.2,0,TAU); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawEffects(dt){
+    // muzzle flash
+    if(state.flash>0){
+      ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=state.flash/.16;
+      const g=ctx.createRadialGradient(state.pointer.x,state.pointer.y,0,state.pointer.x,state.pointer.y,170);
+      g.addColorStop(0,'rgba(255,255,255,.22)'); g.addColorStop(.25,'rgba(255,209,102,.13)'); g.addColorStop(1,'transparent');
+      ctx.fillStyle=g; ctx.fillRect(0,0,state.w,state.h); ctx.restore();
+    }
+    // particles
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    for(const p of state.particles){
+      ctx.globalAlpha=clamp(p.life/.75,0,1); ctx.fillStyle=p.color; ctx.shadowBlur=12; ctx.shadowColor=p.color;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,TAU); ctx.fill();
+    }
+    ctx.restore(); ctx.globalAlpha=1;
+    for(const r of state.rings){
+      ctx.save(); ctx.globalAlpha=clamp(r.life/.45,0,1); ctx.strokeStyle=r.color; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(r.x,r.y,r.r,0,TAU); ctx.stroke(); ctx.restore();
+    }
+    for(const f of state.floaters){
+      ctx.save(); ctx.globalAlpha=clamp(f.life,0,1); ctx.font='900 22px Tahoma, Arial'; ctx.textAlign='center'; ctx.fillStyle=f.color; ctx.shadowBlur=18; ctx.shadowColor=f.color; ctx.fillText(f.text,f.x,f.y); ctx.restore();
+    }
+  }
+
+  function drawScopeOverlay(){
+    if(!(state.focusHeld && state.focus>0 && state.mode==='playing')) return;
+    const x=state.pointer.x,y=state.pointer.y;
+    ctx.save();
+    ctx.fillStyle='rgba(0,0,0,.30)';
+    ctx.beginPath(); ctx.rect(0,0,state.w,state.h); ctx.arc(x,y,130,0,TAU,true); ctx.fill('evenodd');
+    ctx.strokeStyle='rgba(104,255,190,.28)'; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(x,y,130,0,TAU); ctx.stroke();
+    ctx.strokeStyle='rgba(104,255,190,.12)'; ctx.lineWidth=1;
+    for(let i=-2;i<=2;i++){ctx.beginPath(); ctx.moveTo(x+i*32,y-128); ctx.lineTo(x+i*32,y+128); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x-128,y+i*32); ctx.lineTo(x+128,y+i*32); ctx.stroke();}
+    ctx.restore();
+  }
+
+  function update(dt){
+    if(state.mode !== 'playing' || state.paused){ state.last = performance.now(); return; }
+    state.level = 1 + Math.floor((60-state.timeLeft)/10);
+    const focusing = state.focusHeld && state.focus > 0;
+    state.slow = focusing ? .38 : 1;
+    if(focusing) state.focus = clamp(state.focus - dt*23,0,100); else state.focus = clamp(state.focus + dt*9,0,100);
+    state.timeLeft -= dt;
+    if(state.timeLeft <= 0){ state.timeLeft=0; updateUI(); endGame(); return; }
+    state.spawnT -= dt;
+    const spawnRate = clamp(.86 - state.level*.075, .33, .86);
+    if(state.spawnT <= 0){
+      state.targets.push(makeTarget());
+      if(state.level > 3 && Math.random()<.32) setTimeout(()=>{ if(state.mode==='playing') state.targets.push(makeTarget()); }, 90);
+      state.spawnT = spawnRate;
+    }
+    for(const t of state.targets){
+      t.x += t.vx * dt * state.slow;
+      t.y += t.vy * dt * state.slow;
+      t.rot += t.spin * dt;
+      t.pulse += dt*5;
+      t.life -= dt;
+      if(t.x<t.r || t.x>state.w-t.r) t.vx *= -1;
+      if(t.y<88+t.r || t.y>state.h-t.r) t.vy *= -1;
+    }
+    const before = state.targets.length;
+    state.targets = state.targets.filter(t => t.life>0 && !t.hit);
+    const expired = before - state.targets.length;
+    if(expired>0){ state.combo=1; showToast('هدف هرب!', 'var(--red)'); }
+    for(const p of state.particles){p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=Math.pow(.018,dt); p.vy*=Math.pow(.018,dt); p.life-=dt;}
+    state.particles=state.particles.filter(p=>p.life>0);
+    for(const f of state.floaters){f.y+=f.vy*dt; f.life-=dt;}
+    state.floaters=state.floaters.filter(f=>f.life>0);
+    for(const r of state.rings){r.r+=220*dt; r.life-=dt;}
+    state.rings=state.rings.filter(r=>r.life>0);
+    if(state.reloading){state.reloadT-=dt; if(state.reloadT<=0){state.reloading=false; state.ammo=state.mag; showToast('جاهز!', 'var(--green)');}}
+    state.shake = Math.max(0,state.shake - dt*32);
+    state.flash = Math.max(0,state.flash - dt);
+    updateUI();
+  }
+
+  function render(dt){
+    ctx.save();
+    if(state.shake>0){ctx.translate(rand(-state.shake,state.shake), rand(-state.shake,state.shake));}
+    drawBackground(dt);
+    drawScopeOverlay();
+    // target shadows/platforms
+    for(const t of state.targets){
+      ctx.save(); ctx.globalAlpha=.28; ctx.fillStyle='#000'; ctx.beginPath(); ctx.ellipse(t.x, t.y+t.r+16, t.r*.9, t.r*.18, 0,0,TAU); ctx.fill(); ctx.restore();
+      drawTarget(t);
+    }
+    drawEffects(dt);
+    ctx.restore();
+    drawCrosshair();
+    if(state.paused && state.mode==='playing'){
+      ctx.save(); ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(0,0,state.w,state.h); ctx.textAlign='center'; ctx.fillStyle='#fff'; ctx.font='900 46px Tahoma'; ctx.fillText('إيقاف مؤقت', state.w/2, state.h/2); ctx.font='18px Tahoma'; ctx.fillText('اضغط Esc للمتابعة', state.w/2, state.h/2+42); ctx.restore();
+    }
+  }
+
+  function loop(ts){
+    const dt = Math.min(.033, (ts - (state.last || ts))/1000); state.last = ts;
+    update(dt); render(dt); requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // Events
+  canvas.addEventListener('pointermove', e => { state.pointer.x=e.clientX; state.pointer.y=e.clientY; }, {passive:true});
+  canvas.addEventListener('pointerdown', e => { state.pointer.x=e.clientX; state.pointer.y=e.clientY; state.pointer.down=true; if(e.button===2){state.focusHeld=true; return;} shoot(); });
+  canvas.addEventListener('pointerup', e => { state.pointer.down=false; if(e.button===2) state.focusHeld=false; });
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+  addEventListener('keydown', e => {
+    if(e.key==='r' || e.key==='R' || e.key==='ر') reload();
+    if(e.key==='Shift' || e.key==='z' || e.key==='Z') state.focusHeld = true;
+    if(e.key==='Escape' && state.mode==='playing'){ state.paused=!state.paused; showToast(state.paused?'توقف مؤقت':'متابعة', state.paused?'var(--gold)':'var(--green)'); }
+    if(e.code==='Space'){ e.preventDefault(); state.focusHeld = true; }
+    if(e.key==='Enter' && state.mode!=='playing') reset();
+  });
+  addEventListener('keyup', e => { if(e.key==='Shift' || e.key==='z' || e.key==='Z' || e.code==='Space') state.focusHeld = false; });
+  document.getElementById('startBtn').onclick = reset;
+  document.getElementById('startBtn2').onclick = reset;
+  document.getElementById('restartBtn').onclick = reset;
+  document.getElementById('howBtn').onclick = () => setScreen('how');
+  document.getElementById('backBtn').onclick = () => setScreen('menu');
+  document.getElementById('menuBtn').onclick = () => { state.mode='menu'; setScreen('menu'); };
+  document.getElementById('reloadBtn').onclick = reload;
+  const focusBtn = document.getElementById('focusBtn');
+  focusBtn.addEventListener('pointerdown', e=>{e.preventDefault(); state.focusHeld=true;});
+  focusBtn.addEventListener('pointerup', e=>{e.preventDefault(); state.focusHeld=false;});
+  focusBtn.addEventListener('pointercancel', ()=>state.focusHeld=false);
+  updateUI();
+})();
+</script>
+</body>
+</html>

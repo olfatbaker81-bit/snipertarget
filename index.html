@@ -132,6 +132,11 @@
 
   function ensureAudio(){try{audioCtx ||= new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); if(!masterGain){masterGain=audioCtx.createGain();masterGain.gain.value=.72;masterGain.connect(audioCtx.destination)}}catch(e){}}
   function tone(f,t,d,type,v,pan=0,g){if(muted||!audioCtx||!masterGain)return;const o=audioCtx.createOscillator(),a=audioCtx.createGain(),p=audioCtx.createStereoPanner?audioCtx.createStereoPanner():null;o.type=type;o.frequency.setValueAtTime(f,t);if(g)o.frequency.exponentialRampToValueAtTime(g,t+d);a.gain.setValueAtTime(.0001,t);a.gain.exponentialRampToValueAtTime(v,t+.012);a.gain.exponentialRampToValueAtTime(.0001,t+d);if(p){p.pan.value=clamp(pan,-1,1);o.connect(a).connect(p).connect(masterGain)}else o.connect(a).connect(masterGain);o.start(t);o.stop(t+d+.03)}
+  function applause(pan=0){
+    try{ensureAudio();if(muted||!audioCtx||!masterGain)return;const now=audioCtx.currentTime;
+      for(let i=0;i<7;i++){const t=now+i*.055+Math.random()*.025,b=audioCtx.createBuffer(1,Math.floor(audioCtx.sampleRate*.055),audioCtx.sampleRate),data=b.getChannelData(0);for(let j=0;j<data.length;j++)data[j]=(Math.random()*2-1)*(1-j/data.length);const src=audioCtx.createBufferSource(),filter=audioCtx.createBiquadFilter(),gain=audioCtx.createGain(),p=audioCtx.createStereoPanner?audioCtx.createStereoPanner():null;src.buffer=b;filter.type='bandpass';filter.frequency.value=1200+Math.random()*900;filter.Q.value=.65;gain.gain.value=.045;if(p){p.pan.value=clamp(pan+(Math.random()-.5)*.65,-1,1);src.connect(filter).connect(gain).connect(p).connect(masterGain)}else src.connect(filter).connect(gain).connect(masterGain);src.start(t);src.stop(t+.06)}
+    }catch(e){}
+  }
   function beep(type='good',pan=0){try{ensureAudio();if(muted)return;const t=audioCtx.currentTime;if(type==='bad'){tone(180,t,.2,'sawtooth',.06,pan,75);tone(110,t+.04,.2,'triangle',.04,pan)}else if(type==='great'){[880,1100,1320,1760].forEach((f,i)=>tone(f,t+i*.055,.16,'triangle',.075,pan))}else if(type==='swap'){[320,480,720,960].forEach((f,i)=>tone(f,t+i*.06,.18,'sine',.055))}else if(type==='end'){tone(440,t,.28,'sine',.06,0,220);tone(330,t+.22,.42,'triangle',.05,0,120)}else{tone(560,t,.13,'sine',.07,pan,980);tone(840,t+.035,.12,'triangle',.045,pan)}}catch(e){}}
   function toggleSound(){muted=!muted;ensureAudio();if(masterGain)masterGain.gain.setTargetAtTime(muted?0:.72,audioCtx.currentTime,.03);ui.soundBtn.textContent=muted?'🔇 الصوت':'🔊 الصوت';if(!muted)beep('good')}
   function showToast(text,color='white'){ ui.toast.textContent=text; ui.toast.style.color=color; ui.toast.classList.add('show'); clearTimeout(showToast.t); showToast.t=setTimeout(()=>ui.toast.classList.remove('show'),750); }
@@ -164,7 +169,7 @@
     const margin = Math.max(42,size);
     const x = visible ? (state.w * ((index+1)/7) + rand(-20,20)) : rand(margin,state.w-margin);
     const y = visible ? rand(-240,-40) : -rand(50,180);
-    const speed = rand(95,150) + state.level*18 + (isMatch?0:rand(0,35));
+    const speed = rand(175,245) + state.level*28 + (isMatch?0:rand(0,45));
     const color = isMatch ? '#63ffb2' : pick(colors.filter(c=>c!=='#63ffb2'));
     return {x,y,letter:number,size,color,isMatch,vy:speed,vx:rand(-18,18),rot:rand(-.18,.18),spin:rand(-.9,.9),pulse:rand(0,TAU),caught:false,life:1};
   }
@@ -180,7 +185,7 @@
     if(d.isMatch){
       state.hits++; state.combo=clamp(state.combo+1,1,15); state.maxCombo=Math.max(state.maxCombo,state.combo);
       const gained = 120 * state.combo + state.level*25;
-      state.score += gained; state.energy = clamp(state.energy+13,0,100); state.catcher.glow=.35; state.flash=.10;
+      state.score += gained; state.energy = clamp(state.energy+13,0,100); state.catcher.glow=.35; state.flash=.10; applause((d.x/state.w)*2-1);
       createParticles(d.x,d.y,'#63ffb2',30,1.15); addRing(d.x,d.y,'rgba(99,255,178,.95)'); addFloater(d.x,d.y,'+'+gained,'#63ffb2'); beep(state.combo>=5?'great':'good',(d.x/state.w)*2-1); maybeNextTarget();
     } else {
       addFloater(d.x,d.y,'رقم خاطئ!','#ff5570'); loseLife('هذا ليس رقم ' + state.target, d.x, d.y);
@@ -237,7 +242,7 @@
     if(state.pointer.active) c.x += (state.pointer.x - c.x) * Math.min(1, dt*14);
     const keyMove = (state.keys.left?-1:0) + (state.keys.right?1:0); c.x += keyMove * (430 + state.level*24) * dt; c.x = clamp(c.x, c.w/2+12, state.w-c.w/2-12); c.glow=Math.max(0,c.glow-dt*1.8);
     state.energy = clamp(state.energy + dt*7, 0, 100);
-    state.spawnT -= dt; const spawnRate=clamp(.82-state.level*.055,.38,.82); if(state.spawnT<=0){state.drops.push(makeDrop(false)); if(state.level>4 && Math.random()<.22) state.drops.push(makeDrop(false)); state.spawnT=spawnRate}
+    state.spawnT -= dt; const spawnRate=clamp(.68-state.level*.045,.28,.68); if(state.spawnT<=0){state.drops.push(makeDrop(false)); if(state.level>4 && Math.random()<.22) state.drops.push(makeDrop(false)); state.spawnT=spawnRate}
     const catchTop=c.y-c.h/2, catchBottom=c.y+c.h/2, catchLeft=c.x-c.w/2, catchRight=c.x+c.w/2;
     for(const d of state.drops){
       d.y += d.vy*dt; d.x += d.vx*dt + Math.sin((performance.now()/450)+d.pulse)*10*dt; d.rot += d.spin*dt; if(d.x<38||d.x>state.w-38) d.vx*=-1;
